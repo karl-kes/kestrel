@@ -27,7 +27,7 @@ public:
     , strides_{}
     , count_{1uz}
   {
-    for (auto d{0uz}; d < Dimensions; ++d) {
+    for (auto d{Dimensions}; d-- > 0uz;) {
       const auto length{cells[d]};
 
       const auto empty_extent{length == 0uz};

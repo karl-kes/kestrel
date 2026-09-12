@@ -84,6 +84,20 @@ struct field_view {
   constexpr auto operator()(Indices... indices) const noexcept -> const T& {
     return (*this)[axis::x](indices...);
   }
+
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(const index_t& idx) noexcept -> T&
+    requires (Components == 1uz)
+  {
+    return (*this)[axis::x](idx);
+  }
+
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(const index_t& idx) const noexcept -> const T&
+    requires (Components == 1uz)
+  {
+    return (*this)[axis::x](idx);
+  }
 };
 
 template <arithmetic T, std::size_t Dimensions, std::size_t Components>
