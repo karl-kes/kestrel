@@ -27,7 +27,7 @@ struct component_view {
   }
 
   template <std::integral... Indices>
-    requires (sizeof...(Indices) == Dimensions)
+    requires (coordinate_indices<Dimensions, Indices...>)
   [[nodiscard]] CUDA_CALLABLE
   constexpr auto operator()(Indices... indices) const noexcept -> T& {
     return (*this)(index_t{static_cast<std::size_t>(indices)...});
@@ -68,7 +68,7 @@ struct field_view {
   template <std::integral... Indices>
     requires(
       Components == 1uz &&
-      sizeof...(Indices) == Dimensions
+      coordinate_indices<Dimensions, Indices...>
     )
   [[nodiscard]] CUDA_CALLABLE
   constexpr auto operator()(Indices... indices) noexcept -> T& {
@@ -78,7 +78,7 @@ struct field_view {
   template <std::integral... Indices>
     requires(
       Components == 1uz &&
-      sizeof...(Indices) == Dimensions
+      coordinate_indices<Dimensions, Indices...>
     )
   [[nodiscard]] CUDA_CALLABLE
   constexpr auto operator()(Indices... indices) const noexcept -> const T& {
