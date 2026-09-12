@@ -1,87 +1,42 @@
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <limits>
-#include <stdexcept>
 
 #include <xpu/config.hpp>
 #include <xpu/launch.hpp>
 #include <xpu/soa.hpp>
 
 #include <kestrel/concepts.hpp>
+#include <kestrel/enums.hpp>
+#include <kestrel/layout.hpp>
 
 namespace kestrel {
 
-template <std::size_t Dimensions>
-class layout {
-  static_assert(Dimensions > 0uz);
+template <arithmetic T, std::size_t Dimensions>
+struct component_view {
+  using index_t = typename layout<Dimensions>::index_t;
 
-public:
-  using extent = std::array<std::size_t, Dimensions>;
-  using index_t = xpu::array<std::size_t, Dimensions>;
+  T* data;
+  layout<Dimensions> mapping;
 
-private:
-  index_t cells_;
-  index_t strides_;
-  std::size_t count_;
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(const index_t& idx) const noexcept -> T& {
+    return data[mapping.offset(idx)];
+  }
 
-public:
-  explicit constexpr layout(extent cells)
-    : cells_{}
-    , strides_{}
-    , count_{1uz}
-  {
-    for (auto d{0uz}; d < Dimensions; ++d) {
-      const auto length{cells[d]};
-
-      const auto empty_extent{length == 0uz};
-      if (empty_extent) {
-        throw std::invalid_argument{
-          "Layout extents must be positive."
-        };
-      }
-
-      const auto overflow{length > std::numeric_limits<std::size_t>::max() / count_};
-      if (overflow) {
-        throw std::overflow_error{
-          "Layout size overflow."
-        };
-      }
-
-      cells_[d] = length;
-      strides_[d] = count_;
-      count_ *= length;
-    }
+  template <std::integral... Indices>
+    requires (sizeof...(Indices) == Dimensions)
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(Indices... indices) const noexcept -> T& {
+    return (*this)(index_t{static_cast<std::size_t>(indices)...});
   }
 
   [[nodiscard]] CUDA_CALLABLE
-  constexpr auto cells() const noexcept -> index_t {
-    return cells_;
-  }
-
-  [[nodiscard]] CUDA_CALLABLE
-  constexpr auto strides() const noexcept -> index_t {
-    return strides_;
-  }
-
-  [[nodiscard]] CUDA_CALLABLE
-  constexpr auto count() const noexcept -> std::size_t {
-    return count_;
-  }
-
-  [[nodiscard]] CUDA_CALLABLE
-  constexpr auto offset(const index_t& idx) const noexcept -> std::size_t {
-    auto offset{0uz};
-
-    for (auto d{0uz}; d < Dimensions; ++d) {
-      assert(idx[d] < cells_[d]);
-      offset += idx[d] * strides_[d];
-    }
-
-    return offset;
+  constexpr auto operator[](std::size_t idx) const noexcept -> T& {
+    assert(idx < mapping.count());
+    return data[idx];
   }
 };
 
@@ -89,10 +44,46 @@ template <arithmetic T, std::size_t Dimensions, std::size_t Components>
 struct field_view {
   static_assert(Components > 0, "A field must have at least one component.");
 
+  using index_t = typename layout<Dimensions>::index_t;
+
   layout<Dimensions> mapping;
   xpu::soa_view<T, Components> data;
 
-  using index_t = typename layout<Dimensions>::index_t;
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator[](axis component) noexcept -> component_view<T, Dimensions> {
+    const auto idx{to_index(component)};
+    assert(idx < Components);
+
+    return {data[idx], mapping};
+  }
+
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator[](axis component) const noexcept -> component_view<const T, Dimensions> {
+    const auto idx{to_index(component)};
+    assert(idx < Components);
+
+    return {data[idx], mapping};
+  }
+
+  template <std::integral... Indices>
+    requires(
+      Components == 1uz &&
+      sizeof...(Indices) == Dimensions
+    )
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(Indices... indices) noexcept -> T& {
+    return (*this)[axis::x](indices...);
+  }
+
+  template <std::integral... Indices>
+    requires(
+      Components == 1uz &&
+      sizeof...(Indices) == Dimensions
+    )
+  [[nodiscard]] CUDA_CALLABLE
+  constexpr auto operator()(Indices... indices) const noexcept -> const T& {
+    return (*this)[axis::x](indices...);
+  }
 };
 
 template <arithmetic T, std::size_t Dimensions, std::size_t Components>

@@ -1,3 +1,4 @@
+#include <kestrel/enums.hpp>
 #include <kestrel/field.hpp>
 #include <kestrel/grid.hpp>
 #include <kestrel/precision.hpp>
@@ -10,6 +11,9 @@ auto main() -> int {
   };
 
   kestrel::scalar_field<kestrel::fp_t, 3uz> scalar{geometry.cells()};
+
+  auto field{scalar.view()};
+  field(1, 1, 1) = 0.0;
 
   return 0;
 }
