@@ -9,7 +9,7 @@ auto main() -> int {
     {1.0, 1.0, 1.0}
   };
 
-  kestrel::scalar_field<kestrel::fp_t> scalar{geometry.total_cells()};
+  kestrel::scalar_field<kestrel::fp_t, 3uz> scalar{geometry.cells()};
 
   return 0;
 }
